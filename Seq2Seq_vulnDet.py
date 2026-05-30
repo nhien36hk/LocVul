@@ -168,10 +168,16 @@ train_data = train_data[train_data["target"] == 1]
 train_data = train_data[~train_data['flaw_line_index'].isna()] # drop nan samples
 
 # keep the useful for Seq2Seq columns
-train_data = train_data[["processed_func", "flaw_line", "flaw_line_index"]]
+cols_to_keep = ["processed_func", "flaw_line", "flaw_line_index"]
+if "metadata" in train_data.columns:
+    cols_to_keep.append("metadata")
+train_data = train_data[cols_to_keep]
 train_data = train_data.reset_index(drop=True)
 
-train_data = pd.DataFrame(({'Text': train_data['processed_func'], 'Lines':train_data['flaw_line'], 'Line_Index':train_data['flaw_line_index']}))
+train_df_dict = {'Text': train_data['processed_func'], 'Lines':train_data['flaw_line'], 'Line_Index':train_data['flaw_line_index']}
+if 'metadata' in train_data.columns:
+    train_df_dict['metadata'] = train_data['metadata']
+train_data = pd.DataFrame(train_df_dict)
 
 ## validation data
 # keep only vulnerable samples
@@ -179,10 +185,16 @@ val_data = val_data[val_data["target"] == 1]
 val_data = val_data[~val_data['flaw_line_index'].isna()] # drop nan samples
 
 # keep the useful for Seq2Seq columns
-val_data = val_data[["processed_func", "flaw_line", "flaw_line_index"]]
+cols_to_keep = ["processed_func", "flaw_line", "flaw_line_index"]
+if "metadata" in val_data.columns:
+    cols_to_keep.append("metadata")
+val_data = val_data[cols_to_keep]
 val_data = val_data.reset_index(drop=True)
 
-val_data = pd.DataFrame(({'Text': val_data['processed_func'], 'Lines':val_data['flaw_line'], 'Line_Index':val_data['flaw_line_index']}))
+val_df_dict = {'Text': val_data['processed_func'], 'Lines':val_data['flaw_line'], 'Line_Index':val_data['flaw_line_index']}
+if 'metadata' in val_data.columns:
+    val_df_dict['metadata'] = val_data['metadata']
+val_data = pd.DataFrame(val_df_dict)
 
 ## test data
 # keep only vulnerable samples
@@ -190,10 +202,16 @@ test_data = test_data[test_data["target"] == 1]
 test_data = test_data[~test_data['flaw_line_index'].isna()] # drop nan samples
 
 # keep the useful for Seq2Seq columns
-test_data = test_data[["processed_func", "flaw_line", "flaw_line_index"]]
+cols_to_keep = ["processed_func", "flaw_line", "flaw_line_index"]
+if "metadata" in test_data.columns:
+    cols_to_keep.append("metadata")
+test_data = test_data[cols_to_keep]
 test_data = test_data.reset_index(drop=True)
 
-test_data = pd.DataFrame(({'Text': test_data['processed_func'], 'Lines':test_data['flaw_line'], 'Line_Index':test_data['flaw_line_index']}))
+test_df_dict = {'Text': test_data['processed_func'], 'Lines':test_data['flaw_line'], 'Line_Index':test_data['flaw_line_index']}
+if 'metadata' in test_data.columns:
+    test_df_dict['metadata'] = test_data['metadata']
+test_data = pd.DataFrame(test_df_dict)
 
 # logs
 logger.info(f"Train data length: {len(train_data)}")
@@ -615,6 +633,9 @@ results_df = pd.DataFrame({
     'Actual Vulnerable Lines': actual_labels,
     'Predicted Vulnerable Lines': test_preds
 })
+
+if 'metadata' in test_data.columns:
+    results_df['metadata'] = test_data['metadata']
 
 # Save the DataFrame to an Excel file
 results_df.to_excel('test_results.xlsx', index=False)

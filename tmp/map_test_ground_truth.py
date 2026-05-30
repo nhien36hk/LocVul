@@ -109,18 +109,21 @@ def main():
                 flaw_line = "/~/".join(gt_item.get('vul_lines', {}).get('code', []))
                 flaw_line_index = ",".join(map(str, gt_item.get('vul_lines', {}).get('line_no', [])))
                 project = gt_item.get('project', 'unknown')
+                metadata = json.dumps(gt_item.get('metadata')) if gt_item.get('metadata') is not None else ""
             else:
                 print("No matched ground truth")
                 flaw_line = ""
                 flaw_line_index = ""
                 project = "unknown"
+                metadata = ""
                 
             mapped_records.append({
                 'project': project,
                 'target': target_label,
                 'processed_func': func_text,
                 'flaw_line': flaw_line,
-                'flaw_line_index': flaw_line_index
+                'flaw_line_index': flaw_line_index,
+                'metadata': metadata
             })
             
         df = pd.DataFrame(mapped_records)
