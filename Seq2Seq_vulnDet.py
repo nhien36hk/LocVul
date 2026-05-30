@@ -64,6 +64,16 @@ args = parser.parse_args()
 
 print(args)
 
+# ==========================================
+# Training Hyper-parameters
+# ==========================================
+num_epochs = 10
+learning_rate = 5e-5
+batch_size = 8
+patience = 5
+# ==========================================
+
+
 # Basic Configuration of logging and seed
 
 # In[2]:
@@ -305,8 +315,7 @@ test_encodings = tokenize_data(test_data, max_len_lines)
 # In[13]:
 
 
-# Define batch size
-batch_size = 8
+# Define batch size (Moved to the top of the file)
 
 
 # In[14]:
@@ -346,10 +355,7 @@ if torch.cuda.device_count() > 1:
 # In[16]:
 
 
-# Hyper-parameters
-learning_rate = 5e-5
-num_epochs = 10
-patience = 5  # Early stopping patience
+# Hyper-parameters (Moved to the top of the file)
 
 optimizer = AdamW(model.parameters(), lr=learning_rate, eps = 1e-8)
 max_steps = len(train_loader) * num_epochs

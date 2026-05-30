@@ -78,6 +78,15 @@ args = parser.parse_args()
 
 print(args)
 
+# ==========================================
+# Training Hyper-parameters
+# ==========================================
+n_epochs = 10
+lr = 2e-5
+batch_size = 8
+patience = 5
+# ==========================================
+
 
 # Basic Configuration of logging and seed
 
@@ -395,12 +404,7 @@ X_test = tokenizer(
 # In[11]:
 
 
-# Hyper-parameters
-
-n_epochs = 10
-lr = 2e-5 #5e-05
-batch_size = 8 #16
-patience = 5
+# Hyper-parameters (Moved to the top of the file)
 
 optimizer = AdamW(model.parameters(),
                   lr = lr, # default is 5e-5, our notebook had 2e-5

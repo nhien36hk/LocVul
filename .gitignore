@@ -1,0 +1,12 @@
+tmp/
+data/*
+checkpoints/*
+codet5-base/
+
+# files
+*.log
+*.pth
+*.csv
+*.pdf
+*.png
+*.json
