@@ -25,6 +25,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
 from torch.nn.utils import clip_grad_norm_
+from torch.cuda.amp import autocast, GradScaler
 
 from transformers import set_seed
 from transformers import AdamWeightDecay
@@ -409,6 +410,7 @@ if FINE_TUNE:
     # Start Training
     milli_sec1 = int(round(time.time() * 1000))
     logger.info("Starting training...")
+    scaler = GradScaler()
     
     for epoch_num in range(num_epochs):
         logger.info(f'Epoch: {epoch_num + 1}')
@@ -425,16 +427,22 @@ if FINE_TUNE:
             # Zero gradients
             optimizer.zero_grad()
     
-            # Forward pass
-            outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
-            loss = outputs.loss.mean()
-            loss.backward()
+            # Forward pass with AMP autocast
+            with autocast():
+                outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+                loss = outputs.loss.mean()
+            
+            # Scaled backward pass
+            scaler.scale(loss).backward()
     
+            # Unscale gradients before clipping
+            scaler.unscale_(optimizer)
             # Clip gradients to prevent exploding gradients
             clip_grad_norm_(parameters=model.parameters(), max_norm=1.0)
     
             # Update parameters
-            optimizer.step()
+            scaler.step(optimizer)
+            scaler.update()
             lr_scheduler.step()
     
             train_loss += loss.item()
@@ -459,15 +467,17 @@ if FINE_TUNE:
             for step_num_e, batch_data in enumerate(tqdm(val_loader, desc='Validation')):
                 input_ids, attention_mask, labels = [data.to(device) for data in batch_data]
     
-                # Forward pass
-                outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
-                val_loss += outputs.loss.mean().item()
+                # Forward pass with AMP autocast
+                with autocast():
+                    outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+                    val_loss += outputs.loss.mean().item()
                 
-                # Collect predictions and actual labels for ROUGE
-                if torch.cuda.device_count() > 1:
-                    preds = model.module.generate(input_ids=input_ids, attention_mask=attention_mask, max_length=max_len_lines)
-                else:
-                    preds = model.generate(input_ids=input_ids, attention_mask=attention_mask, max_length=max_len_lines)
+                # Collect predictions and actual labels for ROUGE (with autocast for generation)
+                with autocast():
+                    if torch.cuda.device_count() > 1:
+                        preds = model.module.generate(input_ids=input_ids, attention_mask=attention_mask, max_length=max_len_lines)
+                    else:
+                        preds = model.generate(input_ids=input_ids, attention_mask=attention_mask, max_length=max_len_lines)
                 decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
                 decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
     
@@ -568,11 +578,12 @@ with torch.no_grad():
     for step_num, batch_data in enumerate(tqdm(test_loader, desc='Testing')):
         input_ids, attention_mask, labels = [data.to(device) for data in batch_data]
 
-        # Generate predictions
-        if torch.cuda.device_count() > 1:
-            outputs = model.module.generate(input_ids=input_ids, attention_mask=attention_mask, max_length=max_len_lines)
-        else:
-            outputs = model.generate(input_ids=input_ids, attention_mask=attention_mask, max_length=max_len_lines)
+        # Generate predictions with autocast
+        with autocast():
+            if torch.cuda.device_count() > 1:
+                outputs = model.module.generate(input_ids=input_ids, attention_mask=attention_mask, max_length=max_len_lines)
+            else:
+                outputs = model.generate(input_ids=input_ids, attention_mask=attention_mask, max_length=max_len_lines)
 
         # Decode predicted sequences and actual labels
         decoded_preds = tokenizer.batch_decode(outputs, skip_special_tokens=True)
