@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Default parameters
-EPOCHS=3
+EPOCHS=10
 # Set SMOKE to empty for full dataset (omit the flag)
 SMOKE=""
 # Larger batch size suitable for a 25 GB GPU (adjust as needed)
