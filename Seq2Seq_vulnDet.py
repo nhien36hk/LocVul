@@ -29,7 +29,8 @@ from torch.nn.utils import clip_grad_norm_
 from transformers import set_seed
 from transformers import AdamWeightDecay
 from transformers import AutoTokenizer, RobertaTokenizer, AutoModelForSeq2SeqLM #, BertModel, BertTokenizer
-from transformers import AdamW, get_linear_schedule_with_warmup, get_scheduler
+from torch.optim import AdamW
+from transformers import get_linear_schedule_with_warmup, get_scheduler
 
 from evaluate import load
 
@@ -60,6 +61,12 @@ parser.add_argument("--model_variation", default="Salesforce/codet5-base", type=
                         help="The model variation e.g., Salesforce/codet5-base for CodeT5 and google-t5/t5-base for T5.")
 parser.add_argument("--checkpoint_dir", default="./checkpoints_seq2seq", type=str, required=False,
                         help="The directory to store the fine-tuned model (and load from it in inference). Format example: './checkpoints_seq2seq'")
+parser.add_argument("--epochs", default=10, type=int, required=False,
+                        help="Number of epochs to train.")
+parser.add_argument("--smoke", default=-1, type=int, required=False,
+                        help="Number of samples to keep for a smoke test. Negative means use all data.")
+parser.add_argument("--batch_size", default=8, type=int, required=False,
+                        help="Batch size for training and validation.")
 args = parser.parse_args()
 
 print(args)
@@ -67,9 +74,9 @@ print(args)
 # ==========================================
 # Training Hyper-parameters
 # ==========================================
-num_epochs = 10
+num_epochs = args.epochs
 learning_rate = 5e-5
-batch_size = 8
+batch_size = args.batch_size
 patience = 5
 # ==========================================
 
@@ -212,6 +219,12 @@ test_df_dict = {'Text': test_data['processed_func'], 'Lines':test_data['flaw_lin
 if 'metadata' in test_data.columns:
     test_df_dict['metadata'] = test_data['metadata']
 test_data = pd.DataFrame(test_df_dict)
+
+if args.smoke > 0:
+    logger.info(f"Applying smoke test slicing to {args.smoke} samples.")
+    train_data = train_data.head(args.smoke)
+    val_data = val_data.head(args.smoke)
+    test_data = test_data.head(args.smoke)
 
 # logs
 logger.info(f"Train data length: {len(train_data)}")
@@ -426,27 +439,14 @@ if FINE_TUNE:
     
             train_loss += loss.item()
             
-            # Collect predictions and actual labels for ROUGE
-            if torch.cuda.device_count() > 1:
-                preds = model.module.generate(input_ids=input_ids, attention_mask=attention_mask, max_length=max_len_lines)
-            else:
-                preds = model.generate(input_ids=input_ids, attention_mask=attention_mask, max_length=max_len_lines)
-            decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
-            decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
-    
-            total_preds.extend(decoded_preds)
-            total_labels.extend(decoded_labels)
+            # Skip predictions generation during training for performance (unnecessary for weight updates)
+            pass
     
         # Compute average training loss
         train_loss_per_epoch.append(train_loss / len(train_loader))
     
-        # Compute ROUGE for training set
-        train_rouge_scores = rouge_metric.compute(predictions=total_preds, references=total_labels, use_stemmer=True)
-        # Check if ROUGE score is a scalar (float) or a detailed dictionary
-        if isinstance(train_rouge_scores["rougeL"], dict):
-            avg_train_rouge = train_rouge_scores["rougeL"].mid.fmeasure #* 100
-        else:
-            avg_train_rouge = train_rouge_scores["rougeL"] #* 100  # For scalar case
+        # Skip computing ROUGE for training set to speed up training
+        avg_train_rouge = 0.0
         train_rouge_per_epoch.append(avg_train_rouge)
     
         # Validation

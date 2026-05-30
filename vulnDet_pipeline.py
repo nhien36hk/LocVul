@@ -74,6 +74,12 @@ parser.add_argument("--EXPLAIN_ONLY_TP", default="no", type=str, required=False,
 parser.add_argument("--sort_by_lines", default="yes", type=str, required=False,
                         choices=["yes", "no"],
                         help="Yes when sort lines by line score and no when sort functions by prediction proba (and then sort lines in each function). Default is yes.")
+parser.add_argument("--epochs", default=10, type=int, required=False,
+                        help="Number of epochs to train.")
+parser.add_argument("--smoke", default=-1, type=int, required=False,
+                        help="Number of samples to keep for a smoke test. Negative means use all data.")
+parser.add_argument("--batch_size", default=8, type=int, required=False,
+                        help="Batch size for training and validation.")
 args = parser.parse_args()
 
 print(args)
@@ -81,9 +87,9 @@ print(args)
 # ==========================================
 # Training Hyper-parameters
 # ==========================================
-n_epochs = 10
+n_epochs = args.epochs
 lr = 2e-5
-batch_size = 8
+batch_size = args.batch_size
 patience = 5
 # ==========================================
 
@@ -269,6 +275,13 @@ val_data.head()
 
 test_data = pd.DataFrame(({'Text': test_data['processed_func'], 'Labels': test_data['target'], 'Lines':test_data['flaw_line'], 'Line_Index':test_data['flaw_line_index']}))
 
+if args.smoke > 0:
+    logger.info(f"Applying smoke test slicing to {args.smoke} samples.")
+    train_data = train_data.head(args.smoke)
+    val_data = val_data.head(args.smoke)
+    test_data = test_data.head(args.smoke)
+
+# logs
 logger.info(f"Train data length: {len(train_data)}")
 logger.info(f"Validation data length: {len(val_data)}")
 logger.info(f"Test data length: {len(test_data)}")
