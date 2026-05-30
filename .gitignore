@@ -1,4 +1,3 @@
-tmp/
 data/*
 checkpoints/*
 codet5-base/
