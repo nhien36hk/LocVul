@@ -20,7 +20,7 @@ module clear -f
 module load shared python312
 
 # Đường dẫn đến Python trong môi trường bạn vừa cài
-export PYTHON_BIN="/tmp/vllm_env/bin/python"
+export PYTHON_BIN="/datastore/inseclab/HuuNhien/envs/Finetune/bin/python"
 export HF_HOME=/datastore/inseclab/rapp/cache/huggingface
 export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
 
