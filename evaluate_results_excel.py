@@ -258,7 +258,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--file_path", default="test_results.xlsx", type=str)
-    parser.add_argument("--model_path_t5", default="./codet5-base", type=str)
+    parser.add_argument("--model_path_t5", default="Salesforce/codet5-base", type=str)
     parser.add_argument("--checkpoint_t5", default="./checkpoints_seq2seq/best_weights.pt", type=str)
     parser.add_argument("--model_path_bert", default="microsoft/codebert-base", type=str)
     parser.add_argument("--checkpoint_bert", default="checkpoints/best_weights.pt", type=str)
