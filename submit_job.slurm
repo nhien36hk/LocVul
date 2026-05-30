@@ -72,7 +72,7 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 # Step 1: Run CodeBERT training and self-attention line localization
 echo ""
 echo ">>> [STAGE 1] Running CodeBERT Pipeline (vulnDet_pipeline.py)..."
-python vulnDet_pipeline.py \
+$PYTHON_BIN vulnDet_pipeline.py \
     --seed=$SEED \
     --FINE_TUNE="yes" \
     --model_variation="microsoft/codebert-base" \
@@ -89,7 +89,7 @@ python vulnDet_pipeline.py \
 # Step 2: Run CodeT5 line-level seq2seq training
 echo ""
 echo ">>> [STAGE 2] Running CodeT5 Seq2Seq Pipeline (Seq2Seq_vulnDet.py)..."
-python Seq2Seq_vulnDet.py \
+$PYTHON_BIN Seq2Seq_vulnDet.py \
     --seed=$SEED \
     --FINE_TUNE="yes" \
     --model_variation="Salesforce/codet5-base" \
