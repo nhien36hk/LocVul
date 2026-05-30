@@ -113,9 +113,12 @@ set_seed(seed)
 # In[3]:
 
 
-# Read dataset
+# Read dataset splits directly using relative paths
 root_path = os.getcwd()
-dataset = pd.read_csv(os.path.join(root_path, 'data', 'dataset.csv'))
+train_data = pd.read_csv('data/train.csv')
+val_data = pd.read_csv('data/val.csv')
+test_data = pd.read_csv('data/test.csv')
+dataset = pd.concat([train_data, val_data, test_data], ignore_index=True)
 
 
 # In[4]:
@@ -212,13 +215,6 @@ selected_project = "all" # all # Chrome # linux # Android # qemu # php # ImageMa
 # In[8]:
 
 
-# data split
-val_ratio = 0.1
-num_of_ratio = int(val_ratio * len(dataset))
-data = dataset.iloc[0:-num_of_ratio, :]
-test_data = dataset.iloc[-num_of_ratio:, :]
-train_data = data.iloc[0:-num_of_ratio, :]
-val_data = data.iloc[-num_of_ratio:, :]
 
 # if selected_project=="all" continue with the whole test_set, else, if one specific project is selected keep only its samples
 if selected_project != "all":

@@ -123,11 +123,12 @@ def save_checkpoint(filename, epoch, model, optimizer, scheduler, train_loss_per
 # In[4]:
 
 
-# Read dataset
+# Read dataset splits directly using relative paths
 root_path = os.getcwd()
-dataset = pd.read_csv(os.path.join(root_path, 'data', 'dataset.csv'))
-#dataset = dataset.iloc[0:1000,: ]
-dataset = dataset.dropna(subset=["processed_func"])
+train_data = pd.read_csv('data/train.csv').dropna(subset=["processed_func"])
+val_data = pd.read_csv('data/val.csv').dropna(subset=["processed_func"])
+test_data = pd.read_csv('data/test.csv').dropna(subset=["processed_func"])
+dataset = pd.concat([train_data, val_data, test_data], ignore_index=True)
 
 
 # In[5]:
@@ -143,13 +144,6 @@ else:
 # In[6]:
 
 
-# data split
-val_ratio = 0.1
-num_of_ratio = int(val_ratio * len(dataset))
-data = dataset.iloc[0:-num_of_ratio, :]
-test_data = dataset.iloc[-num_of_ratio:, :]
-train_data = data.iloc[0:-num_of_ratio, :]
-val_data = data.iloc[-num_of_ratio:, :]
 
 
 # In[7]:
