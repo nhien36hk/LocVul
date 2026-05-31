@@ -72,31 +72,12 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 # Step 1: Run CodeBERT training and self-attention line localization
 echo ""
 echo ">>> [STAGE 1] Running CodeBERT Pipeline (vulnDet_pipeline.py)..."
-$PYTHON_BIN vulnDet_pipeline.py \
-    --seed=$SEED \
-    --FINE_TUNE="yes" \
-    --model_variation="microsoft/codebert-base" \
-    --checkpoint_dir="./checkpoints" \
-    --sampling="no" \
-    --REMOVE_MISSING_LINE_LABELS="yes" \
-    --EXPLAINER="ATTENTION" \
-    --EXPLAIN_ONLY_TP="no" \
-    --sort_by_lines="yes" \
-    --epochs=$EPOCHS \
-    ${SMOKE:+--smoke=$SMOKE} \
-    --batch_size=$BATCH_SIZE
+$PYTHON_BIN vulnDet_pipeline.py --seed=$SEED --FINE_TUNE="yes" --model_variation="microsoft/codebert-base" --checkpoint_dir="./checkpoints" --sampling="no" --REMOVE_MISSING_LINE_LABELS="yes" --EXPLAINER="ATTENTION" --EXPLAIN_ONLY_TP="no" --sort_by_lines="yes" --epochs=$EPOCHS ${SMOKE:+--smoke=$SMOKE} --batch_size=$BATCH_SIZE
 
 # Step 2: Run CodeT5 line-level seq2seq training
 echo ""
 echo ">>> [STAGE 2] Running CodeT5 Seq2Seq Pipeline (Seq2Seq_vulnDet.py)..."
-$PYTHON_BIN Seq2Seq_vulnDet.py \
-    --seed=$SEED \
-    --FINE_TUNE="yes" \
-    --model_variation="Salesforce/codet5-base" \
-    --checkpoint_dir="./checkpoints_seq2seq" \
-    --epochs=$EPOCHS \
-    ${SMOKE:+--smoke=$SMOKE} \
-    --batch_size=$BATCH_SIZE
+$PYTHON_BIN Seq2Seq_vulnDet.py --seed=$SEED --FINE_TUNE="yes" --model_variation="Salesforce/codet5-base" --checkpoint_dir="./checkpoints_seq2seq" --epochs=$EPOCHS ${SMOKE:+--smoke=$SMOKE} --batch_size=$BATCH_SIZE
 
 echo ""
 echo ">>> LocVul Training Pipeline execution completed!"
