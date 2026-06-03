@@ -1,5 +1,6 @@
 import os
 import json
+import ast
 import math
 import numpy as np
 import pandas as pd
@@ -92,13 +93,44 @@ def compute_group_metrics(gt_lens, sim_lens, msps, msrs, mious):
         "miou": float(miou)
     }
 
-def evaluate_excel(file_path, model_path_t5, checkpoint_t5, model_path_bert, checkpoint_bert, json_output_path="evaluation_metrics.json"):
+def load_and_filter_data(file_path):
+    print(f"Loading Excel from {file_path}...")
+    df = pd.read_excel(file_path)
+    if 'metadata' in df.columns:
+        filtered_indices = []
+        for idx, row in df.iterrows():
+            meta = row['metadata']
+            if pd.isna(meta):
+                print(f"Sample {idx} has no metadata")
+                continue
+            try:
+                if isinstance(meta, str):
+                    try:
+                        meta_dict = json.loads(meta)
+                    except json.JSONDecodeError:
+                        meta_dict = ast.literal_eval(meta)
+                else:
+                    meta_dict = meta
+                
+                if isinstance(meta_dict, dict):
+                    codet5_meta = meta_dict.get("codet5", {})
+                    is_within = codet5_meta.get("vul_line_within_128")
+                    if is_within is True or str(is_within).lower() == 'true':
+                        filtered_indices.append(idx)
+            except Exception as e:
+                pass
+        
+        df = df.loc[filtered_indices].reset_index(drop=True)
+        print(f"Filtered down to {len(df)} samples with vul_line_within_128 == True")
+    else:
+        print("Warning: No 'metadata' column found, proceeding with all samples.")
+    return df
+
+def evaluate_excel(df, file_path, model_path_t5, checkpoint_t5, model_path_bert, checkpoint_bert, json_output_path="evaluation_metrics.json"):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    # Load Excel
-    df = pd.read_excel(file_path)
-    print(f"Loaded {len(df)} samples from {file_path}")
+    print(f"Evaluating {len(df)} samples...")
 
     # Step 1: Load CodeBERT and predict Giai doan 1 labels (TP vs FN)
     print("Loading CodeBERT classifier and predicting (TP vs FN)...")
@@ -265,7 +297,10 @@ if __name__ == "__main__":
     parser.add_argument("--output_json", default="evaluation_metrics.json", type=str)
     args = parser.parse_args()
 
+    df_filtered = load_and_filter_data(args.file_path)
+
     evaluate_excel(
+        df=df_filtered,
         file_path=args.file_path,
         model_path_t5=args.model_path_t5,
         checkpoint_t5=args.checkpoint_t5,
