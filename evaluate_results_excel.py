@@ -156,12 +156,12 @@ def evaluate_excel(file_path, model_path_t5, checkpoint_t5, model_path_bert, che
 
         # Original lines in the function
         original_lines = source_code.split('\n')
-        predicted_lines = pred_lines_str.split('\n') if pred_lines_str else []
+        predicted_lines = [line for line in (pred_lines_str.split('\n') if pred_lines_str else []) if line.strip()]
 
         # 1. Similarity Replacement
         similar_lines = []
         for j, predicted_line in enumerate(predicted_lines):
-            if predicted_line not in original_lines and j < len(predicted_lines) - 1:
+            if predicted_line not in original_lines:
                 similar_line = get_most_similar_line(predicted_line, original_lines, tokenizer_t5, model_t5)
             else:
                 similar_line = predicted_line
