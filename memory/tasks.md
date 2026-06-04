@@ -3,6 +3,13 @@
 （无）
 
 # Completed (recent)
+- **[task-4] Support base model evaluation in Seq2Seq_vulnDet.py**
+  - Status: ✅ 完成
+  - Requested: 2026-06-04 13:56
+  - Updated: 2026-06-04 13:57
+  - Notes: Enabled base model evaluation when `--FINE_TUNE no` is passed (skips checkpoint loading). Output files are now dynamically saved with the suffix `_unfinetuned` (e.g. `test_results_unfinetuned.xlsx` and `test_results_unfinetuned.txt`) to differentiate them.
+  - Result: Code updated in Seq2Seq_vulnDet.py.
+
 - **[task-3] Split evaluation in evaluate_results_excel.py into separate length and correctness metrics functions**
   - Status: ✅ 完成
   - Requested: 2026-06-04 13:40

@@ -75,14 +75,14 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 # $PYTHON_BIN vulnDet_pipeline.py --seed=$SEED --FINE_TUNE="yes" --model_variation="microsoft/codebert-base" --checkpoint_dir="./checkpoints" --sampling="no" --REMOVE_MISSING_LINE_LABELS="yes" --EXPLAINER="ATTENTION" --EXPLAIN_ONLY_TP="no" --sort_by_lines="yes" --epochs=$EPOCHS ${SMOKE:+--smoke=$SMOKE} --batch_size=$BATCH_SIZE
 
 # Step 2: Run CodeT5 line-level seq2seq training (COMPLETED)
-# echo ""
-# echo ">>> [STAGE 2] Running CodeT5 Seq2Seq Pipeline (Seq2Seq_vulnDet.py)..."
-# $PYTHON_BIN Seq2Seq_vulnDet.py --seed=$SEED --FINE_TUNE="yes" --model_variation="Salesforce/codet5-base" --checkpoint_dir="./checkpoints_seq2seq" --epochs=$EPOCHS ${SMOKE:+--smoke=$SMOKE} --batch_size=$BATCH_SIZE
+echo ""
+echo ">>> [STAGE 2] Running CodeT5 Seq2Seq Pipeline (Seq2Seq_vulnDet.py)..."
+$PYTHON_BIN Seq2Seq_vulnDet.py --seed=$SEED --FINE_TUNE="no" --model_variation="Salesforce/codet5-base" --checkpoint_dir="./checkpoints_seq2seq" --epochs=$EPOCHS ${SMOKE:+--smoke=$SMOKE} --batch_size=$BATCH_SIZE
 
 # Step 3: Run evaluation script
 echo ""
 echo ">>> [STAGE 3] Running Excel Evaluation (evaluate_results_excel.py)..."
-$PYTHON_BIN evaluate_results_excel.py
+$PYTHON_BIN evaluate_results_excel.py --load_base_codet5p
 
 echo ""
 echo ">>> LocVul Training Pipeline execution completed!"

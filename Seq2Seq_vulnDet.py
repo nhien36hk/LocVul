@@ -552,13 +552,16 @@ if FINE_TUNE:
 
 
 # Load best model from checkpoint during training with early stopping
-
-checkpoint = torch.load(save_path, map_location=device)
-# If model is wrapped in DataParallel, load state_dict directly into the underlying model
-if torch.cuda.device_count() > 1:
-    model.module.load_state_dict(checkpoint['model'])
+if FINE_TUNE:
+    logger.info(f"Loading fine-tuned model checkpoint from {save_path}...")
+    checkpoint = torch.load(save_path, map_location=device)
+    # If model is wrapped in DataParallel, load state_dict directly into the underlying model
+    if torch.cuda.device_count() > 1:
+        model.module.load_state_dict(checkpoint['model'])
+    else:
+        model.load_state_dict(checkpoint['model'])
 else:
-    model.load_state_dict(checkpoint['model'])
+    logger.info("Running in non-fine-tuned mode. Using base Hugging Face model weights directly (no checkpoint loaded).")
 model.to(device)
 
 
@@ -631,8 +634,13 @@ logger.info(f"ROUGE-Lsum: {rougeLsum_score:.4f}")
 # In[21]:
 
 
+# Determine suffix for output files
+suffix = "" if FINE_TUNE else "_unfinetuned"
+txt_filename = f"test_results{suffix}.txt"
+xlsx_filename = f"test_results{suffix}.xlsx"
+
 # Save the source code, predictions, and true labels into a single file for further analysis
-with open('test_results.txt', 'w', encoding='utf-8') as f:
+with open(txt_filename, 'w', encoding='utf-8') as f:
     for code, pred, label in zip(test_data['Text'], test_preds, actual_labels):
         f.write(f"Source Code:\n{code}\n{'-'*50}\n")
         f.write(f"Actual Vulnerable Lines:\n{label}\n{'='*50}\n\n")
@@ -649,7 +657,8 @@ if 'metadata' in test_data.columns:
     results_df['metadata'] = test_data['metadata']
 
 # Save the DataFrame to an Excel file
-results_df.to_excel('test_results.xlsx', index=False)
+results_df.to_excel(xlsx_filename, index=False)
+logger.info(f"Saved evaluation results to {xlsx_filename} and {txt_filename}")
 
 
 # Generating Vulnerable Lines (Inference)
