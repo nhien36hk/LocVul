@@ -82,7 +82,7 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 # Step 3: Run evaluation script
 echo ""
 echo ">>> [STAGE 3] Running Excel Evaluation (evaluate_results_excel.py)..."
-$PYTHON_BIN evaluate_results_excel.py --load_base_codet5p
+$PYTHON_BIN evaluate_results_excel.py
 
 echo ""
 echo ">>> LocVul Training Pipeline execution completed!"

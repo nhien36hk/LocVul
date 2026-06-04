@@ -62,69 +62,181 @@ def get_metrics(gt_vulnerable_lines: set, predicted_vulnerable_lines: set):
 
     return msp, msr, miou
 
-def compute_group_metrics(gt_lens, sim_lens, msps, msrs, mious):
+def compute_length_group_metrics(gt_lens, sim_lens):
     """
-    Compute Acc_vlc, MAE, RMSE, and mean MSP, MSR, MIoU for a group of samples.
+    Compute Acc_vlc, MAE, and RMSE for a group of samples.
     """
     if not gt_lens:
         return {
             "count": 0,
             "accuracy_vlc": 0.0,
             "mae": 0.0,
-            "rmse": 0.0,
-            "msp": 0.0,
-            "msr": 0.0,
-            "miou": 0.0
+            "rmse": 0.0
         }
     acc_vlc = np.mean([1 if s == g else 0 for s, g in zip(sim_lens, gt_lens)])
     mae = mean_absolute_error(gt_lens, sim_lens)
     rmse = np.sqrt(mean_squared_error(gt_lens, sim_lens))
-    msp = np.mean(msps)
-    msr = np.mean(msrs)
-    miou = np.mean(mious)
     
     return {
         "count": len(gt_lens),
         "accuracy_vlc": float(acc_vlc),
         "mae": float(mae),
-        "rmse": float(rmse),
+        "rmse": float(rmse)
+    }
+
+def compute_correctness_group_metrics(msps, msrs, mious):
+    """
+    Compute mean MSP, MSR, and MIoU for a group of samples.
+    """
+    if not msps:
+        return {
+            "count": 0,
+            "msp": 0.0,
+            "msr": 0.0,
+            "miou": 0.0
+        }
+    msp = np.mean(msps)
+    msr = np.mean(msrs)
+    miou = np.mean(mious)
+    
+    return {
+        "count": len(msps),
         "msp": float(msp),
         "msr": float(msr),
         "miou": float(miou)
     }
 
-def load_and_filter_data(file_path):
+def load_excel_with_metadata(file_path):
+    """
+    Load Excel file and parse metadata to find which samples have vul_line_within_128 == True.
+    Returns the full DataFrame with a helper column 'is_within_128'.
+    """
     print(f"Loading Excel from {file_path}...")
     df = pd.read_excel(file_path)
+    is_within_list = []
+    
     if 'metadata' in df.columns:
-        filtered_indices = []
         for idx, row in df.iterrows():
             meta = row['metadata']
-            if pd.isna(meta):
-                print(f"Sample {idx} has no metadata")
-                continue
-            try:
-                if isinstance(meta, str):
-                    try:
-                        meta_dict = json.loads(meta)
-                    except json.JSONDecodeError:
-                        meta_dict = ast.literal_eval(meta)
-                else:
-                    meta_dict = meta
-                
-                if isinstance(meta_dict, dict):
-                    codet5_meta = meta_dict.get("codet5", {})
-                    is_within = codet5_meta.get("vul_line_within_128")
-                    if is_within is True or str(is_within).lower() == 'true':
-                        filtered_indices.append(idx)
-            except Exception as e:
-                pass
-        
-        df = df.loc[filtered_indices].reset_index(drop=True)
-        print(f"Filtered down to {len(df)} samples with vul_line_within_128 == True")
+            is_within = False
+            if not pd.isna(meta):
+                try:
+                    if isinstance(meta, str):
+                        try:
+                            meta_dict = json.loads(meta)
+                        except json.JSONDecodeError:
+                            meta_dict = ast.literal_eval(meta)
+                    else:
+                        meta_dict = meta
+                    
+                    if isinstance(meta_dict, dict):
+                        codet5_meta = meta_dict.get("codet5", {})
+                        is_within_val = codet5_meta.get("vul_line_within_128")
+                        if is_within_val is True or str(is_within_val).lower() == 'true':
+                            is_within = True
+                except Exception as e:
+                    pass
+            is_within_list.append(is_within)
     else:
-        print("Warning: No 'metadata' column found, proceeding with all samples.")
+        print("Warning: No 'metadata' column found.")
+        is_within_list = [False] * len(df)
+        
+    df['is_within_128'] = is_within_list
     return df
+
+def evaluate_length_metrics(results_records):
+    """
+    Calculate and print Acc_vlc, MAE, RMSE metrics for full_dataset and reliable_set.
+    """
+    summary = {}
+    
+    for dataset_name, data_filter in [
+        ("full_dataset", lambda r: True),
+        ("reliable_set", lambda r: r["gt_len"] <= 20)
+    ]:
+        dataset_records = [r for r in results_records if data_filter(r)]
+        
+        # Overall
+        gt_overall = [r["gt_len"] for r in dataset_records]
+        sim_overall = [r["sim_len"] for r in dataset_records]
+        
+        # True Positive (pred_g1 == 1)
+        tp_records = [r for r in dataset_records if r["pred_g1"] == 1]
+        gt_tp = [r["gt_len"] for r in tp_records]
+        sim_tp = [r["sim_len"] for r in tp_records]
+
+        # False Negative (pred_g1 == 0)
+        fn_records = [r for r in dataset_records if r["pred_g1"] == 0]
+        gt_fn = [r["gt_len"] for r in fn_records]
+        sim_fn = [r["sim_len"] for r in fn_records]
+
+        summary[dataset_name] = {
+            "overall": compute_length_group_metrics(gt_overall, sim_overall),
+            "true_positive": compute_length_group_metrics(gt_tp, sim_tp),
+            "false_negative": compute_length_group_metrics(gt_fn, sim_fn)
+        }
+        
+    # Print tables for length metrics
+    for d_name in ["full_dataset", "reliable_set"]:
+        title = "FULL DATASET EVALUATION (LENGTH)" if d_name == "full_dataset" else "RELIABLE SET (GT <= 20) EVALUATION (LENGTH)"
+        d_summary = summary[d_name]
+        print("\n" + "="*70)
+        print(f" {title}")
+        print("="*70)
+        print(f"{'Metric':<15} | {'Overall':<15} | {'True Positive (TP)':<18} | {'False Negative (FN)':<18}")
+        print("-"*70)
+        print(f"{'Count':<15} | {d_summary['overall']['count']:15d} | {d_summary['true_positive']['count']:18d} | {d_summary['false_negative']['count']:18d}")
+        print(f"{'Accuracy VLC':<15} | {d_summary['overall']['accuracy_vlc']:15.4f} | {d_summary['true_positive']['accuracy_vlc']:18.4f} | {d_summary['false_negative']['accuracy_vlc']:18.4f}")
+        print(f"{'MAE':<15} | {d_summary['overall']['mae']:15.4f} | {d_summary['true_positive']['mae']:18.4f} | {d_summary['false_negative']['mae']:18.4f}")
+        print(f"{'RMSE':<15} | {d_summary['overall']['rmse']:15.4f} | {d_summary['true_positive']['rmse']:18.4f} | {d_summary['false_negative']['rmse']:18.4f}")
+        print("="*70)
+        
+    return summary
+
+def evaluate_correctness_metrics(filtered_records):
+    """
+    Calculate and print MSP, MSR, MIoU correctness/localization metrics for the within_128 dataset.
+    No full/reliable split.
+    """
+    # Overall
+    msps_overall = [r["msp"] for r in filtered_records]
+    msrs_overall = [r["msr"] for r in filtered_records]
+    mious_overall = [r["miou"] for r in filtered_records]
+    
+    # True Positive (pred_g1 == 1)
+    tp_records = [r for r in filtered_records if r["pred_g1"] == 1]
+    msps_tp = [r["msp"] for r in tp_records]
+    msrs_tp = [r["msr"] for r in tp_records]
+    mious_tp = [r["miou"] for r in tp_records]
+
+    # False Negative (pred_g1 == 0)
+    fn_records = [r for r in filtered_records if r["pred_g1"] == 0]
+    msps_fn = [r["msp"] for r in fn_records]
+    msrs_fn = [r["msr"] for r in fn_records]
+    mious_fn = [r["miou"] for r in fn_records]
+
+    summary = {
+        "within_128": {
+            "overall": compute_correctness_group_metrics(msps_overall, msrs_overall, mious_overall),
+            "true_positive": compute_correctness_group_metrics(msps_tp, msrs_tp, mious_tp),
+            "false_negative": compute_correctness_group_metrics(msps_fn, msrs_fn, mious_fn)
+        }
+    }
+    
+    # Print table for correctness metrics
+    d_summary = summary["within_128"]
+    print("\n" + "="*70)
+    print(" WITHIN 128 TOKENS DATASET EVALUATION (CORRECTNESS)")
+    print("="*70)
+    print(f"{'Metric':<15} | {'Overall':<15} | {'True Positive (TP)':<18} | {'False Negative (FN)':<18}")
+    print("-"*70)
+    print(f"{'Count':<15} | {d_summary['overall']['count']:15d} | {d_summary['true_positive']['count']:18d} | {d_summary['false_negative']['count']:18d}")
+    print(f"{'MSP':<15} | {d_summary['overall']['msp']:15.4f} | {d_summary['true_positive']['msp']:18.4f} | {d_summary['false_negative']['msp']:18.4f}")
+    print(f"{'MSR':<15} | {d_summary['overall']['msr']:15.4f} | {d_summary['true_positive']['msr']:18.4f} | {d_summary['false_negative']['msr']:18.4f}")
+    print(f"{'MIoU':<15} | {d_summary['overall']['miou']:15.4f} | {d_summary['true_positive']['miou']:18.4f} | {d_summary['false_negative']['miou']:18.4f}")
+    print("="*70)
+    
+    return summary
 
 def evaluate_excel(df, file_path, model_path_t5, checkpoint_t5, model_path_bert, checkpoint_bert, json_output_path="evaluation_metrics.json", load_base_codet5p=False):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -217,7 +329,8 @@ def evaluate_excel(df, file_path, model_path_t5, checkpoint_t5, model_path_bert,
             "msp": msp,
             "msr": msr,
             "miou": miou,
-            "pred_g1": pred_g1  # 1 = True Positive, 0 = False Negative
+            "pred_g1": pred_g1,  # 1 = True Positive, 0 = False Negative
+            "is_within_128": bool(row['is_within_128'])
         })
 
     # Save similarity-replaced predictions back to a new Excel file
@@ -227,66 +340,22 @@ def evaluate_excel(df, file_path, model_path_t5, checkpoint_t5, model_path_bert,
     df.to_excel(output_file, index=False)
     print(f"Saved evaluated results to: {output_file}")
 
-    # Step 3: Compute split metrics
+    # Step 3: Compute split metrics using the two functions
     splits_summary = {}
 
-    for dataset_name, data_filter in [
-        ("full_dataset", lambda r: True),
-        ("reliable_set", lambda r: r["gt_len"] <= 20)
-    ]:
-        dataset_records = [r for r in results_records if data_filter(r)]
-        
-        # Overall
-        gt_overall = [r["gt_len"] for r in dataset_records]
-        sim_overall = [r["sim_len"] for r in dataset_records]
-        msp_overall = [r["msp"] for r in dataset_records]
-        msr_overall = [r["msr"] for r in dataset_records]
-        miou_overall = [r["miou"] for r in dataset_records]
-        
-        # True Positive (pred_g1 == 1)
-        tp_records = [r for r in dataset_records if r["pred_g1"] == 1]
-        gt_tp = [r["gt_len"] for r in tp_records]
-        sim_tp = [r["sim_len"] for r in tp_records]
-        msp_tp = [r["msp"] for r in tp_records]
-        msr_tp = [r["msr"] for r in tp_records]
-        miou_tp = [r["miou"] for r in tp_records]
+    # Evaluate length metrics (Acc VLC, MAE, RMSE) using full dataset and reliable set
+    length_summary = evaluate_length_metrics(results_records)
+    splits_summary.update(length_summary)
 
-        # False Negative (pred_g1 == 0)
-        fn_records = [r for r in dataset_records if r["pred_g1"] == 0]
-        gt_fn = [r["gt_len"] for r in fn_records]
-        sim_fn = [r["sim_len"] for r in fn_records]
-        msp_fn = [r["msp"] for r in fn_records]
-        msr_fn = [r["msr"] for r in fn_records]
-        miou_fn = [r["miou"] for r in fn_records]
-
-        splits_summary[dataset_name] = {
-            "overall": compute_group_metrics(gt_overall, sim_overall, msp_overall, msr_overall, miou_overall),
-            "true_positive": compute_group_metrics(gt_tp, sim_tp, msp_tp, msr_tp, miou_tp),
-            "false_negative": compute_group_metrics(gt_fn, sim_fn, msp_fn, msr_fn, miou_fn)
-        }
+    # Evaluate correctness metrics (MSP, MSR, MIoU) using within_128 dataset only
+    filtered_records = [r for r in results_records if r["is_within_128"]]
+    correctness_summary = evaluate_correctness_metrics(filtered_records)
+    splits_summary.update(correctness_summary)
 
     # Save to JSON
     with open(json_output_path, 'w', encoding='utf-8') as f:
         json.dump(splits_summary, f, indent=4, ensure_ascii=False)
     print(f"Saved evaluation metrics to: {json_output_path}")
-
-    # Print Summary Tables
-    for d_name in ["full_dataset", "reliable_set"]:
-        title = "FULL DATASET EVALUATION" if d_name == "full_dataset" else "RELIABLE SET (GT <= 20) EVALUATION"
-        d_summary = splits_summary[d_name]
-        print("\n" + "="*70)
-        print(f" {title}")
-        print("="*70)
-        print(f"{'Metric':<15} | {'Overall':<15} | {'True Positive (TP)':<18} | {'False Negative (FN)':<18}")
-        print("-"*70)
-        print(f"{'Count':<15} | {d_summary['overall']['count']:15d} | {d_summary['true_positive']['count']:18d} | {d_summary['false_negative']['count']:18d}")
-        print(f"{'Accuracy VLC':<15} | {d_summary['overall']['accuracy_vlc']:15.4f} | {d_summary['true_positive']['accuracy_vlc']:18.4f} | {d_summary['false_negative']['accuracy_vlc']:18.4f}")
-        print(f"{'MAE':<15} | {d_summary['overall']['mae']:15.4f} | {d_summary['true_positive']['mae']:18.4f} | {d_summary['false_negative']['mae']:18.4f}")
-        print(f"{'RMSE':<15} | {d_summary['overall']['rmse']:15.4f} | {d_summary['true_positive']['rmse']:18.4f} | {d_summary['false_negative']['rmse']:18.4f}")
-        print(f"{'MSP':<15} | {d_summary['overall']['msp']:15.4f} | {d_summary['true_positive']['msp']:18.4f} | {d_summary['false_negative']['msp']:18.4f}")
-        print(f"{'MSR':<15} | {d_summary['overall']['msr']:15.4f} | {d_summary['true_positive']['msr']:18.4f} | {d_summary['false_negative']['msr']:18.4f}")
-        print(f"{'MIoU':<15} | {d_summary['overall']['miou']:15.4f} | {d_summary['true_positive']['miou']:18.4f} | {d_summary['false_negative']['miou']:18.4f}")
-        print("="*70)
 
 if __name__ == "__main__":
     import argparse
@@ -300,10 +369,10 @@ if __name__ == "__main__":
     parser.add_argument("--load_base_codet5p", action="store_true", help="Load base CodeT5/CodeT5+ model from Hugging Face without loading checkpoint")
     args = parser.parse_args()
 
-    df_filtered = load_and_filter_data(args.file_path)
+    df_full = load_excel_with_metadata(args.file_path)
 
     evaluate_excel(
-        df=df_filtered,
+        df=df_full,
         file_path=args.file_path,
         model_path_t5=args.model_path_t5,
         checkpoint_t5=args.checkpoint_t5,
