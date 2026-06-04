@@ -3,6 +3,13 @@
 （无）
 
 # Completed (recent)
+- **[task-5] Adapt default paths dynamically in evaluate_results_excel.py for base model**
+  - Status: ✅ 完成
+  - Requested: 2026-06-04 14:24
+  - Updated: 2026-06-04 14:25
+  - Notes: When `--load_base_codet5p` is passed without specifying file paths, it now automatically defaults to `test_results_unfinetuned.xlsx` and outputs metrics to `evaluation_metrics_unfinetuned.json`.
+  - Result: Code updated in evaluate_results_excel.py.
+
 - **[task-4] Support base model evaluation in Seq2Seq_vulnDet.py**
   - Status: ✅ 完成
   - Requested: 2026-06-04 13:56

@@ -369,15 +369,26 @@ if __name__ == "__main__":
     parser.add_argument("--load_base_codet5p", action="store_true", help="Load base CodeT5/CodeT5+ model from Hugging Face without loading checkpoint")
     args = parser.parse_args()
 
-    df_full = load_excel_with_metadata(args.file_path)
+    file_path = args.file_path
+    json_output = args.output_json
+
+    if args.load_base_codet5p:
+        if file_path == "test_results.xlsx":
+            file_path = "test_results_unfinetuned.xlsx"
+            print(f"Auto-selected file path: {file_path}")
+        if json_output == "evaluation_metrics.json":
+            json_output = "evaluation_metrics_unfinetuned.json"
+            print(f"Auto-selected output JSON path: {json_output}")
+
+    df_full = load_excel_with_metadata(file_path)
 
     evaluate_excel(
         df=df_full,
-        file_path=args.file_path,
+        file_path=file_path,
         model_path_t5=args.model_path_t5,
         checkpoint_t5=args.checkpoint_t5,
         model_path_bert=args.model_path_bert,
         checkpoint_bert=args.checkpoint_bert,
-        json_output_path=args.output_json,
+        json_output_path=json_output,
         load_base_codet5p=args.load_base_codet5p
     )
