@@ -126,7 +126,7 @@ def load_and_filter_data(file_path):
         print("Warning: No 'metadata' column found, proceeding with all samples.")
     return df
 
-def evaluate_excel(df, file_path, model_path_t5, checkpoint_t5, model_path_bert, checkpoint_bert, json_output_path="evaluation_metrics.json"):
+def evaluate_excel(df, file_path, model_path_t5, checkpoint_t5, model_path_bert, checkpoint_bert, json_output_path="evaluation_metrics.json", load_base_codet5p=False):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
@@ -164,7 +164,9 @@ def evaluate_excel(df, file_path, model_path_t5, checkpoint_t5, model_path_bert,
     tokenizer_t5 = AutoTokenizer.from_pretrained(model_path_t5, do_lower_case=True)
     model_t5 = AutoModelForSeq2SeqLM.from_pretrained(model_path_t5)
     
-    if checkpoint_t5 and os.path.exists(checkpoint_t5):
+    if load_base_codet5p:
+        print("Running with original non-finetuned base model weights from Hugging Face (no checkpoint loaded).")
+    elif checkpoint_t5 and os.path.exists(checkpoint_t5):
         print(f"Loading CodeT5 fine-tuned checkpoint from {checkpoint_t5}...")
         checkpoint = torch.load(checkpoint_t5, map_location=device)
         model_t5.load_state_dict(checkpoint['model'])
@@ -295,6 +297,7 @@ if __name__ == "__main__":
     parser.add_argument("--model_path_bert", default="microsoft/codebert-base", type=str)
     parser.add_argument("--checkpoint_bert", default="checkpoints/best_weights.pt", type=str)
     parser.add_argument("--output_json", default="evaluation_metrics.json", type=str)
+    parser.add_argument("--load_base_codet5p", action="store_true", help="Load base CodeT5/CodeT5+ model from Hugging Face without loading checkpoint")
     args = parser.parse_args()
 
     df_filtered = load_and_filter_data(args.file_path)
@@ -306,5 +309,6 @@ if __name__ == "__main__":
         checkpoint_t5=args.checkpoint_t5,
         model_path_bert=args.model_path_bert,
         checkpoint_bert=args.checkpoint_bert,
-        json_output_path=args.output_json
+        json_output_path=args.output_json,
+        load_base_codet5p=args.load_base_codet5p
     )
