@@ -5,6 +5,7 @@ import math
 import numpy as np
 import pandas as pd
 import torch
+from collections import Counter
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.metrics.pairwise import cosine_similarity
@@ -49,16 +50,19 @@ def get_most_similar_line(predicted_line, original_lines, tokenizer, model):
     most_similar_idx = np.argmax(cosine_similarities)
     return original_lines[most_similar_idx]
 
-def get_metrics(gt_vulnerable_lines: set, predicted_vulnerable_lines: set):
-    """
-    Calculate MSP, MSR, MIoU from ground truth and predicted lines sets.
-    """
-    intersection = gt_vulnerable_lines.intersection(predicted_vulnerable_lines)
-    union = gt_vulnerable_lines.union(predicted_vulnerable_lines)
+def get_metrics(gt_vulnerable_lines: list, predicted_vulnerable_lines: list):
+    gt_counts = Counter(gt_vulnerable_lines)
+    pred_counts = Counter(predicted_vulnerable_lines)
+    
+    # Intersection (min count of each line)
+    intersection_count = sum((gt_counts & pred_counts).values())
+    
+    # Union (max count of each line)
+    union_count = sum((gt_counts | pred_counts).values())
 
-    msp = len(intersection) / len(predicted_vulnerable_lines) if len(predicted_vulnerable_lines) > 0 else 0
-    msr = len(intersection) / len(gt_vulnerable_lines) if len(gt_vulnerable_lines) > 0 else 0
-    miou = len(intersection) / len(union) if len(union) > 0 else 0
+    msp = intersection_count / len(predicted_vulnerable_lines) if len(predicted_vulnerable_lines) > 0 else 0
+    msr = intersection_count / len(gt_vulnerable_lines) if len(gt_vulnerable_lines) > 0 else 0
+    miou = intersection_count / union_count if union_count > 0 else 0
 
     return msp, msr, miou
 
@@ -316,16 +320,16 @@ def evaluate_excel(df, file_path, model_path_t5, checkpoint_t5, model_path_bert,
         sim_pred_str = '\n'.join(similar_lines)
         similar_predictions.append(sim_pred_str)
 
-        # Convert to sets for metric calculation (ignoring empty lines)
-        gt_set = set(line.strip() for line in actual_lines_str.split('\n') if line.strip())
-        pred_sim_set = set(line.strip() for line in similar_lines if line.strip())
+        # Compute exact line counts (including duplicates) for MAE/RMSE
+        gt_list = [line.strip() for line in actual_lines_str.split('\n') if line.strip()]
+        pred_sim_list = [line.strip() for line in similar_lines if line.strip()]
 
-        # Compute MSP, MSR, MIoU
-        msp, msr, miou = get_metrics(gt_set, pred_sim_set)
+        # Compute MSP, MSR, MIoU 
+        msp, msr, miou = get_metrics(gt_list, pred_sim_list)
 
         results_records.append({
-            "gt_len": len(gt_set),
-            "sim_len": len(pred_sim_set),
+            "gt_len": len(gt_list),
+            "sim_len": len(pred_sim_list),
             "msp": msp,
             "msr": msr,
             "miou": miou,
