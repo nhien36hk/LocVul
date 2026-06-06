@@ -49,43 +49,20 @@ rm -rf $CUDA_MPS_PIPE_DIRECTORY $CUDA_MPS_LOG_DIRECTORY
 mkdir -p $CUDA_MPS_PIPE_DIRECTORY $CUDA_MPS_LOG_DIRECTORY
 
 
-# =========================================================
-# 1. CHẠY JOB
-# =========================================================
-# Sửa các tham số bên dưới trước khi submit job
-EPOCHS=10
-SMOKE=""         # Để trống = chạy full dataset. Điền số = giới hạn mẫu (ví dụ: SMOKE="100")
-BATCH_SIZE=16
-SEED=9
+# Fixed Ground-truth
+echo "Running Fixed Ground-truth"
+$PYTHON_BIN fix_excel_labels.py
 
-echo "================================================================="
-echo "LocVul Training Pipeline"
-echo "Epochs     : $EPOCHS"
-echo "Smoke      : ${SMOKE:-full dataset}"
-echo "Batch size : $BATCH_SIZE"
-echo "Seed index : $SEED"
-echo "================================================================="
-
-# Set memory allocation configuration to prevent PyTorch NVML assert issues on MIG/restricted GPUs
-export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-
-# Step 1: Run CodeBERT training and self-attention line localization (COMPLETED)
-# echo ""
-# echo ">>> [STAGE 1] Running CodeBERT Pipeline (vulnDet_pipeline.py)..."
-# $PYTHON_BIN vulnDet_pipeline.py --seed=$SEED --FINE_TUNE="yes" --model_variation="microsoft/codebert-base" --checkpoint_dir="./checkpoints" --sampling="no" --REMOVE_MISSING_LINE_LABELS="yes" --EXPLAINER="ATTENTION" --EXPLAIN_ONLY_TP="no" --sort_by_lines="yes" --epochs=$EPOCHS ${SMOKE:+--smoke=$SMOKE} --batch_size=$BATCH_SIZE
-
-# Step 2: Run CodeT5 line-level seq2seq training (COMPLETED)
 echo ""
-echo ">>> [STAGE 2] Running CodeT5 Seq2Seq Pipeline (Seq2Seq_vulnDet.py)..."
-$PYTHON_BIN Seq2Seq_vulnDet.py --seed=$SEED --FINE_TUNE="no" --model_variation="Salesforce/codet5-base" --checkpoint_dir="./checkpoints_seq2seq" --epochs=$EPOCHS ${SMOKE:+--smoke=$SMOKE} --batch_size=$BATCH_SIZE
-
-# Step 3: Run evaluation script
-echo ""
-echo ">>> [STAGE 3] Running Excel Evaluation (evaluate_results_excel.py)..."
+echo "Running Evualation Base Weights."
 $PYTHON_BIN evaluate_results_excel.py --load_base_codet5p
 
 echo ""
-echo ">>> LocVul Training Pipeline execution completed!"
+echo "Running Evualation Finetune Weights."
+$PYTHON_BIN evaluate_results_excel.py 
+
+echo ""
+echo "LocVul Pipeline execution completed!"
 
 # Dọn dẹp MPS sau khi xong
 rm -rf $CUDA_MPS_PIPE_DIRECTORY $CUDA_MPS_LOG_DIRECTORY
